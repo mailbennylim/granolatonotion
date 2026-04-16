@@ -335,10 +335,10 @@ function setPreviewField(id, val) {
 
 // ── Notion proxy helper ────────────────────────────────────────────────────
 // All Notion API calls go through this function.
-// It sends requests to our Netlify function (/.netlify/functions/notion)
+// It sends requests to our Netlify function (/api/notion)
 // instead of calling Notion directly, bypassing the CORS restriction.
 async function notionProxy(method, path, tkn, body) {
-  const res = await fetch('/.netlify/functions/notion', {
+  const res = await fetch('/api/notion', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ method, path, token: tkn || token, body })
@@ -354,7 +354,7 @@ async function saveAndTest() {
   showStatus('cfg-status', 'loading', 'Testing connection...');
   try {
     // Instead of calling Notion directly (blocked by CORS), we call our own
-    // Netlify function at /.netlify/functions/notion — it lives on the same
+    // Netlify function at /api/notion — it lives on the same
     // domain as this page, so the browser allows it. The function then
     // forwards the request to Notion on our behalf from the server side.
     const res = await notionProxy('GET', `/v1/databases/${d}`, t);
