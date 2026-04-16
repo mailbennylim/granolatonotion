@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Granola → Notion</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f7f5f0;
+    --surface: #ffffff;
+    --border: #e0ddd6;
+    --border-strong: #c8c4bb;
+    --accent: #1a1a1a;
+    --green: #2d6a4f;
+    --green-bg: #eaf4ef;
+    --green-border: #b7deca;
+    --text: #1a1a1a;
+    --dim: #6b6860;
+    --muted: #aaa89f;
+    --red: #c0392b;
+    --red-bg: #fdf0ee;
+    --red-border: #f0c4bf;
+    --radius: 6px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.07), 0 4px 12px rgba(0,0,0,0.04);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Geist Mono', monospace; font-size: 16px; min-height: 100vh; padding: 48px 20px 80px; }
+  .container { max-width: 680px; margin: 0 auto; }
+
+  header { margin-bottom: 40px; }
+  .wordmark { font-family: 'Instrument Serif', serif; font-size: 30px; letter-spacing: -0.5px; line-height: 1; margin-bottom: 8px; display: flex; align-items: baseline; gap: 10px; }
+  .wordmark .sep { color: var(--muted); font-style: italic; font-size: 22px; }
+  .sub { color: var(--dim); font-size: 14px; }
+
+  /* Config */
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 16px; overflow: hidden; }
+  .panel-header { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px; cursor: pointer; user-select: none; }
+  .panel-header:hover { background: #fafaf8; }
+  .panel-title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 500; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); transition: background 0.2s; flex-shrink: 0; }
+  .dot.on { background: var(--green); }
+  .caret { color: var(--muted); font-size: 10px; transition: transform 0.2s; }
+  .panel.open .caret { transform: rotate(180deg); }
+  .panel-body { padding: 16px; border-top: 1px solid var(--border); display: none; }
+  .panel.open .panel-body { display: block; }
+  .saved { font-size: 12px; background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); border-radius: 3px; padding: 2px 7px; display: none; }
+
+  label { display: block; font-size: 13px; color: var(--dim); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 5px; }
+  input, textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 5px; color: var(--text); font-family: 'Geist Mono', monospace; font-size: 15px; padding: 9px 11px; outline: none; transition: border-color 0.15s; margin-bottom: 12px; }
+  input:focus, textarea:focus { border-color: var(--accent); }
+  input[type="password"] { letter-spacing: 3px; }
+  .hint { font-size: 13px; color: var(--muted); margin-top: -8px; margin-bottom: 12px; line-height: 1.55; }
+
+  .callout { background: #faf8f3; border: 1px solid #e8e3d8; border-radius: 5px; padding: 11px 13px; font-size: 14px; color: var(--dim); line-height: 1.65; margin-bottom: 14px; }
+  .callout strong { color: var(--text); }
+  code { font-family: 'Geist Mono', monospace; background: #eeecea; padding: 1px 5px; border-radius: 3px; font-size: 13px; }
+
+  /* Main paste area */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; margin-bottom: 12px; }
+  .card-inner { padding: 18px; }
+  .section-label { font-size: 13px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin-bottom: 10px; }
+
+  #raw-paste { min-height: 260px; line-height: 1.65; font-size: 12px; margin-bottom: 0; }
+
+  /* Parsed preview */
+  .preview { background: var(--bg); border: 1px solid var(--border); border-radius: 5px; padding: 13px 14px; margin-top: 14px; display: none; }
+  .preview.show { display: block; }
+  .preview-row { display: flex; gap: 8px; align-items: baseline; margin-bottom: 5px; font-size: 14px; }
+  .preview-row:last-child { margin-bottom: 0; }
+  .preview-key { color: var(--muted); min-width: 70px; flex-shrink: 0; }
+  .preview-val { color: var(--text); }
+  .preview-val.found { color: var(--green); }
+  .preview-val.missing { color: var(--red); font-style: italic; }
+
+  /* Transcript optional section */
+  .transcript-toggle { display: flex; align-items: center; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--border); cursor: pointer; user-select: none; font-size: 14px; color: var(--dim); }
+  .transcript-toggle:hover { background: #fafaf8; }
+  .transcript-toggle .tog-label { flex: 1; }
+  .transcript-toggle .tog-caret { font-size: 10px; color: var(--muted); transition: transform 0.2s; }
+  .transcript-section { border-top: 1px solid var(--border); padding: 14px 18px; display: none; }
+  .transcript-section.open { display: block; }
+  #transcript-input { min-height: 160px; margin-bottom: 0; }
+
+  /* Attendees field */
+  .attendees-row { padding: 14px 18px; border-top: 1px solid var(--border); }
+  .attendees-row label { margin-bottom: 5px; }
+  .attendees-row input { margin-bottom: 0; }
+
+  /* Buttons */
+  .btn-row { display: flex; gap: 8px; padding: 14px 18px; border-top: 1px solid var(--border); }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: none; border-radius: 5px; font-family: 'Geist Mono', monospace; font-size: 15px; font-weight: 500; cursor: pointer; transition: all 0.15s; padding: 10px 18px; flex: 1; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #333; }
+  .btn-primary:disabled { background: #ccc; cursor: not-allowed; }
+  .btn-secondary { background: transparent; color: var(--dim); border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--border-strong); color: var(--text); }
+
+  /* Status */
+  .status { display: none; align-items: center; gap: 9px; padding: 11px 14px; border-radius: 5px; font-size: 15px; margin-top: 12px; line-height: 1.5; }
+  .status.show { display: flex; }
+  .status.loading { background: #f5f5f3; color: var(--dim); border: 1px solid var(--border); }
+  .status.success { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+  .status.error { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+  .spinner { width: 13px; height: 13px; border: 1.5px solid #ddd; border-top-color: #999; border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .notion-link { display: inline-flex; align-items: center; gap: 5px; color: var(--green); font-size: 15px; text-decoration: none; margin-top: 8px; }
+  .notion-link:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="wordmark">Granola <span class="sep">→</span> Notion</div>
+    <div class="sub">Paste your Granola summary. Title, date and link are parsed automatically.</div>
+  </header>
+
+  <!-- CONNECTION PANEL -->
+  <div class="panel" id="cfg-panel">
+    <div class="panel-header" onclick="togglePanel('cfg-panel')">
+      <div class="panel-title">
+        <div class="dot" id="conn-dot"></div>
+        <span id="conn-label">Notion connection — not set up</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="saved" id="saved-badge">saved</span>
+        <div class="caret">▼</div>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div class="callout">
+        <strong>One-time setup.</strong> Two things needed:
+        <br><br>
+        1. <strong>Integration token</strong> — go to <strong>notion.so/profile/integrations</strong> → New integration → copy the secret. Then in your Granola database in Notion, click <code>...</code> → Connections → add your integration.
+        <br><br>
+        2. <strong>Database ID</strong> — open your Granola database. The URL looks like <code>notion.so/yourname/<strong>abc123...</strong>?v=...</code> — copy the 32 characters between your name and the <code>?</code>.
+      </div>
+      <label>Integration Token</label>
+      <input type="password" id="cfg-token" placeholder="secret_xxxxxxxxxxxxxxxx" />
+      <label>Granola Database ID</label>
+      <input type="text" id="cfg-dbid" placeholder="abc123def456789abc123def456789ab" />
+      <div class="hint">32 characters from your Notion database URL.</div>
+      <button class="btn btn-primary" style="width:100%;margin-bottom:0" onclick="saveAndTest()">Save & Test Connection</button>
+      <div id="cfg-status" class="status"></div>
+    </div>
+  </div>
+
+  <!-- MAIN CARD -->
+  <div class="card">
+    <div class="card-inner">
+      <div class="section-label">Paste your Granola summary</div>
+      <textarea id="raw-paste" placeholder="Paste the entire Granola summary here — title, date, bullet points, and the transcript link at the bottom. Everything is parsed automatically." oninput="parsePaste()"></textarea>
+
+      <!-- Live preview of what was parsed -->
+      <div class="preview" id="preview">
+        <div class="preview-row">
+          <span class="preview-key">Title</span>
+          <span class="preview-val" id="prev-title"></span>
+        </div>
+        <div class="preview-row">
+          <span class="preview-key">Date</span>
+          <span class="preview-val" id="prev-date"></span>
+        </div>
+        <div class="preview-row">
+          <span class="preview-key">Link</span>
+          <span class="preview-val" id="prev-link"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Attendees -->
+    <div class="attendees-row">
+      <label>Attendees (optional)</label>
+      <input type="text" id="meeting-attendees" placeholder="e.g. Ben, Porschia" />
+    </div>
+
+    <!-- Optional transcript -->
+    <div class="transcript-toggle" onclick="toggleTranscript()">
+      <span class="tog-label">+ Add transcript (optional)</span>
+      <span class="tog-caret" id="tog-caret" style="transform:rotate(180deg)">▼</span>
+    </div>
+    <div class="transcript-section open" id="transcript-section">
+      <div class="hint" style="margin-bottom:10px;margin-top:0">Paste the raw Granola transcript here. It will be added below the summary in Notion under a Transcript heading.</div>
+      <textarea id="transcript-input" placeholder="Paste raw transcript here..."></textarea>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="clearAll()">Clear</button>
+      <button class="btn btn-primary" id="send-btn" onclick="sendToNotion()">Send to Notion</button>
+    </div>
+  </div>
+
+  <div id="send-status" class="status"></div>
+  <a id="notion-link" class="notion-link" style="display:none" target="_blank">↗ Open in Notion</a>
+
+</div>
+<script>
+let token = '', dbId = '';
+let parsed = { title: '', date: '', link: '', body: '' };
+
+// ── Init ───────────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  const t = localStorage.getItem('g2n_token');
+  const d = localStorage.getItem('g2n_db');
+  if (t && d) {
+    document.getElementById('cfg-token').value = t;
+    document.getElementById('cfg-dbid').value = d;
+    token = t; dbId = d;
+    setConnected(true, 'Notion connected — tap to change');
+  } else {
+    document.getElementById('cfg-panel').classList.add('open');
+  }
+});
+
+// ── Panel toggle ───────────────────────────────────────────────────────────
+function togglePanel(id) { document.getElementById(id).classList.toggle('open'); }
+
+function toggleTranscript() {
+  const sec = document.getElementById('transcript-section');
+  const caret = document.getElementById('tog-caret');
+  sec.classList.toggle('open');
+  caret.style.transform = sec.classList.contains('open') ? 'rotate(180deg)' : '';
+}
+
+function setConnected(yes, label) {
+  document.getElementById('conn-dot').className = yes ? 'dot on' : 'dot';
+  document.getElementById('conn-label').textContent = label;
+  document.getElementById('saved-badge').style.display = yes ? 'inline' : 'none';
+}
+
+// ── Parse the pasted Granola summary ──────────────────────────────────────
+// Granola's format is always:
+//   Line 1: Meeting title
+//   Line 2: Date (e.g. "Mon, 06 Apr 26")
+//   Lines 3 to N-1: Body content (sections, bullets)
+//   Last line: "Chat with meeting transcript: https://..."
+//
+// We read each line, detect these patterns, and split accordingly.
+// This is called "parsing" — extracting structured data from unstructured text.
+
+function parsePaste() {
+  const raw = document.getElementById('raw-paste').value;
+  const lines = raw.split('\n');
+
+  parsed = { title: '', date: '', link: '', body: '' };
+
+  if (lines.length === 0) { updatePreview(); return; }
+
+  // Find the first non-empty line as title, strip any leading # characters
+  // (some Granola formats prepend # to the title as markdown)
+  let titleIndex = 0;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].trim()) { titleIndex = i; break; }
+  }
+  parsed.title = lines[titleIndex].trim().replace(/^#+\s*/, '');
+
+  // Find the date — it's the next non-empty line after the title
+  // Granola format: "Mon, 06 Apr 26"
+  let dateIndex = -1;
+  for (let i = titleIndex + 1; i < lines.length; i++) {
+    if (lines[i].trim()) {
+      dateIndex = i;
+      parsed.date = parseGranolaDate(lines[i].trim());
+      break;
+    }
+  }
+
+  // Last line — look for the Granola transcript URL
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const l = lines[i].trim();
+    if (l.includes('notes.granola.ai')) {
+      const urlMatch = l.match(/https?:\/\/\S+/);
+      if (urlMatch) parsed.link = urlMatch[0];
+      break;
+    }
+  }
+
+  // Body — everything after the date line, excluding the Granola link line
+  const bodyLines = [];
+  const bodyStart = dateIndex >= 0 ? dateIndex + 1 : titleIndex + 1;
+  for (let i = bodyStart; i < lines.length; i++) {
+    const l = lines[i];
+    if (l.trim().includes('notes.granola.ai')) continue;
+    if (l.trim().startsWith('Chat with meeting transcript:')) continue;
+    bodyLines.push(l);
+  }
+  parsed.body = bodyLines.join('\n').trim();
+
+  updatePreview();
+}
+
+function parseGranolaDate(str) {
+  // Granola outputs dates like "Mon, 06 Apr 26" or "Mon, 6 Apr 2026"
+  // We need to produce YYYY-MM-DD for Notion's date field.
+  try {
+    // Step 1: strip the weekday prefix ("Mon, " / "Tuesday, " etc.)
+    const withoutWeekday = str.replace(/^\w+,\s*/, '');
+    // Step 2: expand 2-digit year to 4-digit ("26" → "2026")
+    const normalised = withoutWeekday.replace(/(\d{1,2}\s\w+\s)(\d{2})$/, (_, a, b) => `${a}20${b}`);
+    // Step 3: parse and reformat as YYYY-MM-DD
+    const d = new Date(normalised);
+    if (isNaN(d)) return ''; // return empty so Notion field stays blank rather than getting garbage
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  } catch { return ''; }
+}
+
+function updatePreview() {
+  const prev = document.getElementById('preview');
+  const hasContent = parsed.title || parsed.date || parsed.link;
+  prev.className = hasContent ? 'preview show' : 'preview';
+
+  setPreviewField('prev-title', parsed.title);
+  // Show the date in a readable format for the preview, not the raw ISO string
+  const displayDate = parsed.date ? formatDateDisplay(parsed.date) : '';
+  setPreviewField('prev-date', displayDate);
+  setPreviewField('prev-link', parsed.link ? parsed.link.slice(0, 48) + '…' : '');
+}
+
+function formatDateDisplay(isoDate) {
+  try {
+    const d = new Date(isoDate + 'T00:00:00'); // force local time
+    return d.toLocaleDateString('en-SG', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  } catch { return isoDate; }
+}
+
+function setPreviewField(id, val) {
+  const el = document.getElementById(id);
+  if (val) { el.textContent = val; el.className = 'preview-val found'; }
+  else { el.textContent = 'not found'; el.className = 'preview-val missing'; }
+}
+
+// ── Notion proxy helper ────────────────────────────────────────────────────
+// All Notion API calls go through this function.
+// It sends requests to our Netlify function (/.netlify/functions/notion)
+// instead of calling Notion directly, bypassing the CORS restriction.
+async function notionProxy(method, path, tkn, body) {
+  const res = await fetch('/.netlify/functions/notion', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ method, path, token: tkn || token, body })
+  });
+  return res;
+}
+
+// ── Connection test ────────────────────────────────────────────────────────
+async function saveAndTest() {
+  const t = document.getElementById('cfg-token').value.trim();
+  const d = document.getElementById('cfg-dbid').value.trim().replace(/-/g, '');
+  if (!t || !d) { showStatus('cfg-status', 'error', 'Fill in both fields.'); return; }
+  showStatus('cfg-status', 'loading', 'Testing connection...');
+  try {
+    // Instead of calling Notion directly (blocked by CORS), we call our own
+    // Netlify function at /.netlify/functions/notion — it lives on the same
+    // domain as this page, so the browser allows it. The function then
+    // forwards the request to Notion on our behalf from the server side.
+    const res = await notionProxy('GET', `/v1/databases/${d}`, t);
+    if (res.ok) {
+      const data = await res.json();
+      token = t; dbId = d;
+      localStorage.setItem('g2n_token', t);
+      localStorage.setItem('g2n_db', d);
+      const name = data.title?.[0]?.plain_text || 'Untitled';
+      showStatus('cfg-status', 'success', `Connected to "${name}"`);
+      setConnected(true, `Notion connected — ${name}`);
+      setTimeout(() => document.getElementById('cfg-panel').classList.remove('open'), 1400);
+    } else {
+      const err = await res.json();
+      showStatus('cfg-status', 'error', err.message || 'Check token and database ID.');
+    }
+  } catch(e) { showStatus('cfg-status', 'error', `Network error: ${e.message}`); }
+}
+
+// ── Utility ────────────────────────────────────────────────────────────────
+function clearAll() {
+  document.getElementById('raw-paste').value = '';
+  document.getElementById('meeting-attendees').value = '';
+  document.getElementById('transcript-input').value = '';
+  parsed = { title: '', date: '', link: '', body: '' };
+  document.getElementById('preview').className = 'preview';
+  document.getElementById('send-status').className = 'status';
+  document.getElementById('notion-link').style.display = 'none';
+}
+
+function showStatus(id, type, msg) {
+  const el = document.getElementById(id);
+  el.className = `status show ${type}`;
+  if (type === 'loading') el.innerHTML = `<div class="spinner"></div><span>${msg}</span>`;
+  else if (type === 'success') el.innerHTML = `<span>✓</span><span>${msg}</span>`;
+  else el.innerHTML = `<span>✕</span><span>${msg}</span>`;
+}
+
+// ── Block builders ─────────────────────────────────────────────────────────
+// Notion's API uses a "blocks" model — every line of content is a block object.
+// We convert plain text into these objects before sending.
+
+function chunkText(text, max = 1950) {
+  const chunks = [];
+  for (let i = 0; i < text.length; i += max) chunks.push(text.slice(i, i + max));
+  return chunks;
+}
+
+function para(text) {
+  return chunkText(text).map(c => ({
+    object: 'block', type: 'paragraph',
+    paragraph: { rich_text: [{ type: 'text', text: { content: c } }] }
+  }));
+}
+
+function bullet(text) {
+  return chunkText(text).map(c => ({
+    object: 'block', type: 'bulleted_list_item',
+    bulleted_list_item: { rich_text: [{ type: 'text', text: { content: c } }] }
+  }));
+}
+
+function h2(text) {
+  return [{ object: 'block', type: 'heading_2', heading_2: { rich_text: [{ type: 'text', text: { content: text } }] } }];
+}
+
+function divider() { return [{ object: 'block', type: 'divider', divider: {} }]; }
+
+function textToBlocks(text) {
+  const blocks = [];
+  for (const line of text.split('\n')) {
+    const t = line.trim();
+    if (!t) continue;
+    // Markdown headings — Granola sometimes uses ### or ## in its summaries
+    if (/^###\s+/.test(t)) {
+      blocks.push({ object: 'block', type: 'heading_3', heading_3: { rich_text: [{ type: 'text', text: { content: t.replace(/^###\s+/, '') } }] } });
+    } else if (/^##\s+/.test(t)) {
+      blocks.push({ object: 'block', type: 'heading_2', heading_2: { rich_text: [{ type: 'text', text: { content: t.replace(/^##\s+/, '') } }] } });
+    } else if (/^#\s+/.test(t)) {
+      blocks.push({ object: 'block', type: 'heading_1', heading_1: { rich_text: [{ type: 'text', text: { content: t.replace(/^#\s+/, '') } }] } });
+    } else if (/^[*\-]\s+/.test(t)) {
+      blocks.push(...bullet(t.replace(/^[*\-]\s+/, '')));
+    } else {
+      blocks.push(...para(t));
+    }
+  }
+  return blocks;
+}
+
+async function appendBlocks(pageId, blocks) {
+  for (let i = 0; i < blocks.length; i += 100) {
+    const res = await notionProxy('PATCH', `/v1/blocks/${pageId}/children`, token, { children: blocks.slice(i, i + 100) });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
+  }
+}
+
+// ── Send to Notion ─────────────────────────────────────────────────────────
+async function sendToNotion() {
+  if (!token || !dbId) { showStatus('send-status', 'error', 'Set up your Notion connection first.'); return; }
+  if (!parsed.title) { showStatus('send-status', 'error', 'Paste your Granola summary first — title could not be detected.'); return; }
+  if (!parsed.body) { showStatus('send-status', 'error', 'No body content detected. Check your paste.'); return; }
+
+  document.getElementById('send-btn').disabled = true;
+  document.getElementById('notion-link').style.display = 'none';
+  showStatus('send-status', 'loading', 'Creating page in Notion...');
+
+  try {
+    const attendees = document.getElementById('meeting-attendees').value.trim();
+    const transcript = document.getElementById('transcript-input').value.trim();
+
+    const properties = {
+      Title: { title: [{ type: 'text', text: { content: parsed.title } }] }
+    };
+    if (parsed.date) properties['Date'] = { date: { start: parsed.date } };
+    if (attendees) { properties['Attendees'] = { multi_select: attendees.split(',').map(a => ({ name: a.trim() })).filter(a => a.name) }; }
+    if (parsed.link) properties['Link'] = { url: parsed.link };
+
+    let allBlocks = [
+      ...h2('Summary'),
+      ...textToBlocks(parsed.body)
+    ];
+    if (transcript) {
+      allBlocks = [...allBlocks, ...divider(), ...h2('Transcript'), ...textToBlocks(transcript)];
+    }
+
+    const res = await notionProxy('POST', '/v1/pages', token, {
+      parent: { database_id: dbId },
+      properties,
+      children: allBlocks.slice(0, 100)
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      if (data.message?.includes('Could not find property')) {
+        const m = data.message.match(/property: (.*)/);
+        throw new Error(`Column "${m?.[1] || 'unknown'}" not found. Check your Notion database column names.`);
+      }
+      throw new Error(data.message || 'Unknown Notion API error');
+    }
+
+    if (allBlocks.length > 100) {
+      showStatus('send-status', 'loading', 'Appending remaining content...');
+      await appendBlocks(data.id, allBlocks.slice(100));
+    }
+
+    showStatus('send-status', 'success', 'Added to your Granola database in Notion.');
+    const link = document.getElementById('notion-link');
+    link.href = data.url;
+    link.style.display = 'inline-flex';
+
+  } catch(e) {
+    showStatus('send-status', 'error', e.message);
+  }
+  document.getElementById('send-btn').disabled = false;
+}
+</script>
+</body>
+</html>
